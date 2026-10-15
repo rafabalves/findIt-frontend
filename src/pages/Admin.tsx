@@ -1,0 +1,261 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
+import { Alert, Box, Button, Card, CardContent, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import QrCode2Icon from '@mui/icons-material/QrCode2'
+import { QRCodeSVG } from 'qrcode.react'
+import { publicApi, useApi } from '../api'
+import type { AdminRequest, AdminUser, Category, Item, Page, QRCode, RequestStatus } from '../types'
+import { EmptyState, ErrorState, formatDate, itemStatus, Loading, requestStatus } from '../ui'
+
+type AdminTab = 'requests' | 'items' | 'categories' | 'qr' | 'users'
+const tabs: { value: AdminTab; label: string }[] = [
+  { value: 'requests', label: 'Solicitações' }, { value: 'items', label: 'Itens' },
+  { value: 'categories', label: 'Categorias' }, { value: 'qr', label: 'Etiquetas QR' },
+  { value: 'users', label: 'Usuários' },
+]
+
+export default function Admin() {
+  const [params, setParams] = useSearchParams()
+  const current = params.get('item') ? 'items' : params.get('tab')
+  const tab: AdminTab = tabs.some(entry => entry.value === current) ? current as AdminTab : 'requests'
+  return <Container maxWidth="lg" sx={{ py: { xs: 4, md: 7 }, pb: 10 }}>
+    <span className="eyebrow">PAINEL DA EQUIPE</span>
+    <Typography component="h1" variant="h3" sx={{ mt: 0.8 }}>Administração</Typography>
+    <Typography color="text.secondary" sx={{ mt: 1, mb: 4 }}>Organize os itens e acompanhe cada solicitação em um só lugar.</Typography>
+    <Box className="admin-tabs"><Tabs value={tab} onChange={(_, value: AdminTab) => setParams({ tab: value })} variant="scrollable" scrollButtons="auto">{tabs.map(entry => <Tab key={entry.value} value={entry.value} label={entry.label} />)}</Tabs></Box>
+    <Box sx={{ pt: 4 }}>
+      {tab === 'requests' && <RequestsPanel />}
+      {tab === 'items' && <ItemsPanel editId={params.get('item')} onDone={() => setParams({ tab: 'items' })} />}
+      {tab === 'categories' && <CategoriesPanel />}
+      {tab === 'qr' && <QRPanel />}
+      {tab === 'users' && <UsersPanel />}
+    </Box>
+  </Container>
+}
+
+function RequestsPanel() {
+  const api = useApi()
+  const [status, setStatus] = useState<RequestStatus | ''>('Pending')
+  const [requests, setRequests] = useState<AdminRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [selected, setSelected] = useState<AdminRequest | null>(null)
+  const [decision, setDecision] = useState<'approve' | 'reject'>('approve')
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    const query = status ? `?status=${status}` : ''
+    api<AdminRequest[]>(`/api/admin/requests${query}`, { protected: true })
+      .then(data => { if (alive) { setRequests(data); setError(null) } })
+      .catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar solicitações.') })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [api, status, revision])
+
+  function openDecision(request: AdminRequest, kind: 'approve' | 'reject') {
+    setSelected(request); setDecision(kind); setNotes(''); setError(null)
+  }
+  async function submitDecision(event: FormEvent) {
+    event.preventDefault()
+    if (!selected) return
+    setBusy(true); setError(null)
+    try {
+      await api(`/api/admin/requests/${selected.id}/${decision}`, { protected: true, method: 'POST', body: { adminNotes: notes.trim() || null } })
+      setMessage(decision === 'approve' ? 'Solicitação aprovada.' : 'Solicitação recusada.')
+      setSelected(null); setRevision(value => value + 1)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível concluir a ação.') }
+    finally { setBusy(false) }
+  }
+
+  return <>
+    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
+      <div><Typography variant="h5">Solicitações de recuperação</Typography><Typography color="text.secondary">Analise os pedidos e registre sua decisão.</Typography></div>
+      <TextField select label="Mostrar" value={status} onChange={event => setStatus(event.target.value as RequestStatus | '')} sx={{ minWidth: 180 }}><MenuItem value="">Todas</MenuItem><MenuItem value="Pending">Em análise</MenuItem><MenuItem value="Approved">Aprovadas</MenuItem><MenuItem value="Rejected">Recusadas</MenuItem><MenuItem value="Cancelled">Canceladas</MenuItem><MenuItem value="Expired">Expiradas</MenuItem></TextField>
+    </Stack>
+    {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+    {error && <ErrorState message={error} onRetry={() => setRevision(value => value + 1)} />}
+    {loading ? <Loading /> : !error && requests.length === 0 ? <EmptyState title="Tudo em dia" description="Nenhuma solicitação encontrada para este filtro." /> : <Stack spacing={2}>
+      {requests.map(request => <Paper key={request.id} variant="outlined" className="admin-request-card">
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1}>
+          <div><Typography variant="caption" color="text.secondary">PEDIDO #{request.id} · {formatDate(request.createdAt)}</Typography><Typography variant="h6" sx={{ mt: 0.4 }}>{request.itemName}</Typography><Typography variant="body2" color="text.secondary">{request.userName} · {request.userEmail}</Typography></div>
+          <Box>{requestStatus(request.status)}</Box>
+        </Stack>
+        <Box className="quote-box">“{request.justification}”</Box>
+        {request.adminNotes && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Nota da equipe: {request.adminNotes}</Typography>}
+        <Divider sx={{ my: 2 }} />
+        <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+          <Button component={RouterLink} to={`/itens/${request.itemId}`} endIcon={<ArrowForwardIcon />}>Ver item</Button>
+          {request.status === 'Pending' && <><Button color="success" variant="contained" onClick={() => openDecision(request, 'approve')}>Aprovar</Button><Button color="error" variant="outlined" onClick={() => openDecision(request, 'reject')}>Recusar</Button></>}
+        </Stack>
+      </Paper>)}
+    </Stack>}
+    <Dialog open={Boolean(selected)} onClose={() => !busy && setSelected(null)} fullWidth maxWidth="sm"><Box component="form" onSubmit={submitDecision}><DialogTitle>{decision === 'approve' ? 'Aprovar solicitação' : 'Recusar solicitação'}</DialogTitle><DialogContent><Typography color="text.secondary" sx={{ mb: 2 }}>{selected?.itemName} · {selected?.userName}</Typography><TextField fullWidth multiline minRows={3} label={decision === 'approve' ? 'Orientações para retirada (opcional)' : 'Motivo da recusa'} value={notes} onChange={event => setNotes(event.target.value)} required={decision === 'reject'} /></DialogContent><DialogActions><Button disabled={busy} onClick={() => setSelected(null)}>Cancelar</Button><Button type="submit" variant="contained" color={decision === 'approve' ? 'success' : 'error'} disabled={busy || (decision === 'reject' && !notes.trim())}>Confirmar</Button></DialogActions></Box></Dialog>
+  </>
+}
+
+function toLocalInput(value: string) {
+  const date = new Date(value)
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}
+
+type ItemForm = { categoryId: string; qrCodeGuid: string; name: string; description: string; location: string; foundOn: string }
+const emptyItemForm: ItemForm = { categoryId: '', qrCodeGuid: '', name: '', description: '', location: '', foundOn: '' }
+
+function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => void }) {
+  const api = useApi()
+  const [active, setActive] = useState<Page<Item> | null>(null)
+  const [closed, setClosed] = useState<Page<Item> | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [codes, setCodes] = useState<QRCode[]>([])
+  const [editing, setEditing] = useState<Item | null>(null)
+  const [form, setForm] = useState<ItemForm>(emptyItemForm)
+  const [formOpen, setFormOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      publicApi<Page<Item>>('/api/items?pageSize=100'),
+      publicApi<Page<Item>>('/api/items/recently-closed?pageSize=100'),
+      publicApi<Category[]>('/api/categories'),
+      api<QRCode[]>('/api/admin/qr-codes/available', { protected: true }),
+    ]).then(([items, recent, cat, qr]) => { if (alive) { setActive(items); setClosed(recent); setCategories(cat); setCodes(qr); setError(null) } })
+      .catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar itens.') })
+    return () => { alive = false }
+  }, [api, revision])
+  useEffect(() => {
+    if (!editId) return
+    let alive = true
+    publicApi<Item>(`/api/items/${editId}`).then(item => {
+      if (!alive) return
+      setEditing(item)
+      setForm({ categoryId: String(categories.find(category => category.name === item.category)?.id || ''), qrCodeGuid: '', name: item.name, description: item.description, location: item.location, foundOn: toLocalInput(item.foundOn) })
+      setFormOpen(true)
+    }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Item não encontrado.') })
+    return () => { alive = false }
+  }, [editId, categories])
+
+  function update<K extends keyof ItemForm>(key: K, value: ItemForm[K]) { setForm(current => ({ ...current, [key]: value })) }
+  function openCreate() { setEditing(null); setForm({ ...emptyItemForm, foundOn: toLocalInput(new Date().toISOString()) }); setFormOpen(true) }
+  function closeForm() { setFormOpen(false); if (editId) onDone() }
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      if (!form.categoryId || !form.foundOn) throw new Error('Informe categoria e data em que o item foi encontrado.')
+      const body = { categoryId: Number(form.categoryId), name: form.name.trim(), description: form.description.trim(), location: form.location.trim(), foundOn: new Date(form.foundOn).toISOString() }
+      if (editing) {
+        await api(`/api/admin/items/${editing.id}`, { protected: true, method: 'PATCH', body })
+        setMessage('Item atualizado.');
+      } else {
+        await api('/api/admin/items', { protected: true, method: 'POST', body: { ...body, qrCodeGuid: form.qrCodeGuid || null } })
+        setMessage('Item cadastrado.');
+      }
+      closeForm(); setRevision(value => value + 1)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao salvar item.') }
+    finally { setBusy(false) }
+  }
+
+  return <>
+    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}><div><Typography variant="h5">Gestão de itens</Typography><Typography color="text.secondary">Itens ativos e encerrados nos últimos sete dias.</Typography></div><Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>Cadastrar item</Button></Stack>
+    {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    {!active ? <Loading /> : <>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>Disponíveis <Chip size="small" label={active.total} sx={{ ml: 1 }} /></Typography>
+      <div className="admin-item-grid">{active.items.map(item => <Paper key={item.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{item.name}</Typography><Typography variant="body2" color="text.secondary">{item.category} · {item.location}</Typography></div><Stack direction="row" alignItems="center" spacing={1}>{itemStatus(item.status)}<IconButton component={RouterLink} to={`/itens/${item.id}`} aria-label={`Abrir ${item.name}`}><ArrowForwardIcon /></IconButton><IconButton aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setForm({ categoryId: String(categories.find(category => category.name === item.category)?.id || ''), qrCodeGuid: '', name: item.name, description: item.description, location: item.location, foundOn: toLocalInput(item.foundOn) }); setFormOpen(true) }}><EditOutlinedIcon /></IconButton></Stack></Paper>)}</div>
+      {active.total > active.items.length && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Exibindo os 100 itens ativos mais recentes.</Typography>}
+      {closed && closed.items.length > 0 && <><Typography variant="subtitle1" fontWeight={700} sx={{ mt: 4, mb: 1.5 }}>Encerrados recentemente</Typography><div className="admin-item-grid">{closed.items.map(item => <Paper key={item.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{item.name}</Typography><Typography variant="body2" color="text.secondary">{formatDate(item.statusChangedAt)}</Typography></div><Stack direction="row" alignItems="center" spacing={1}>{itemStatus(item.status)}<IconButton component={RouterLink} to={`/itens/${item.id}`} aria-label={`Abrir ${item.name}`}><ArrowForwardIcon /></IconButton></Stack></Paper>)}</div></>}
+    </>}
+    <Dialog open={formOpen} onClose={() => !busy && closeForm()} fullWidth maxWidth="sm"><Box component="form" onSubmit={submit}><DialogTitle>{editing ? `Editar item #${editing.id}` : 'Cadastrar item'}</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+      <TextField label="Nome" value={form.name} onChange={event => update('name', event.target.value)} inputProps={{ maxLength: 255 }} required fullWidth />
+      <TextField label="Descrição" value={form.description} onChange={event => update('description', event.target.value)} inputProps={{ maxLength: 2000 }} multiline minRows={3} required fullWidth />
+      <TextField label="Local encontrado" value={form.location} onChange={event => update('location', event.target.value)} inputProps={{ maxLength: 255 }} required fullWidth />
+      <TextField select label="Categoria" value={form.categoryId} onChange={event => update('categoryId', event.target.value)} required fullWidth>{categories.map(category => <MenuItem key={category.id} value={String(category.id)}>{category.name}</MenuItem>)}</TextField>
+      <TextField label="Data e hora em que foi encontrado" type="datetime-local" value={form.foundOn} onChange={event => update('foundOn', event.target.value)} InputLabelProps={{ shrink: true }} required fullWidth helperText="O horário local será convertido para UTC ao enviar à API." />
+      {!editing && <TextField select label="Etiqueta QR (opcional)" value={form.qrCodeGuid} onChange={event => update('qrCodeGuid', event.target.value)} fullWidth><MenuItem value="">Sem etiqueta</MenuItem>{codes.map(code => <MenuItem key={code.id} value={code.guid}>#{code.id} · {code.guid.slice(0, 8)}…</MenuItem>)}</TextField>}
+    </Stack></DialogContent><DialogActions><Button disabled={busy} onClick={closeForm}>Cancelar</Button><Button type="submit" variant="contained" disabled={busy}>Salvar item</Button></DialogActions></Box></Dialog>
+  </>
+}
+
+function CategoriesPanel() {
+  const api = useApi()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [name, setName] = useState('')
+  const [editing, setEditing] = useState<Category | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => { let alive = true; publicApi<Category[]>('/api/categories').then(data => { if (alive) setCategories(data) }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar categorias.') }); return () => { alive = false } }, [revision])
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(null)
+    try {
+      await api(editing ? `/api/admin/categories/${editing.id}` : '/api/admin/categories', { protected: true, method: editing ? 'PUT' : 'POST', body: { name: name.trim() } })
+      setMessage(editing ? 'Categoria renomeada.' : 'Categoria criada.'); setName(''); setEditing(null); setRevision(value => value + 1)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao salvar categoria.') }
+    finally { setBusy(false) }
+  }
+  return <><Typography variant="h5">Categorias</Typography><Typography color="text.secondary" sx={{ mb: 3 }}>Organize o catálogo com nomes claros e fáceis de encontrar.</Typography>{message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}{error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <Paper variant="outlined" className="admin-form-card"><Box component="form" onSubmit={submit}><Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}><TextField fullWidth label={editing ? 'Novo nome da categoria' : 'Nova categoria'} value={name} onChange={event => setName(event.target.value)} required inputProps={{ maxLength: 255 }} /><Button type="submit" variant="contained" disabled={busy || !name.trim()} sx={{ whiteSpace: 'nowrap' }}>{editing ? 'Salvar nome' : 'Adicionar'}</Button>{editing && <Button onClick={() => { setEditing(null); setName('') }}>Cancelar</Button>}</Stack></Box></Paper>
+    <div className="admin-item-grid" style={{ marginTop: 22 }}>{categories.map(category => <Paper key={category.id} variant="outlined" className="admin-item-row"><Typography fontWeight={700}>{category.name}</Typography><Button startIcon={<EditOutlinedIcon />} onClick={() => { setEditing(category); setName(category.name) }}>Renomear</Button></Paper>)}</div>
+  </>
+}
+
+function QRPanel() {
+  const api = useApi()
+  const [codes, setCodes] = useState<QRCode[]>([])
+  const [count, setCount] = useState(1)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => { let alive = true; api<QRCode[]>('/api/admin/qr-codes/available', { protected: true }).then(data => { if (alive) { setCodes(data); setError(null) } }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar etiquetas.') }); return () => { alive = false } }, [api, revision])
+  async function generate() {
+    setBusy(true); setError(null)
+    try { const created = await api<QRCode[]>('/api/admin/qr-codes', { protected: true, method: 'POST', body: { count } }); setMessage(`${created.length} ${created.length === 1 ? 'etiqueta criada' : 'etiquetas criadas'}.`); setRevision(value => value + 1) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao gerar etiquetas.') }
+    finally { setBusy(false) }
+  }
+  async function copy(guid: string) { try { await navigator.clipboard.writeText(`${window.location.origin}/qr/${guid}`); setMessage('Link da etiqueta copiado.') } catch { setError('Não foi possível copiar o link.') } }
+  return <><Typography variant="h5">Etiquetas QR</Typography><Typography color="text.secondary" sx={{ mb: 3 }}>Crie etiquetas e vincule uma delas ao cadastrar um item.</Typography>{message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}{error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <Paper variant="outlined" className="admin-form-card"><Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.5}><TextField label="Quantidade" type="number" value={count} onChange={event => setCount(Number(event.target.value))} inputProps={{ min: 1, max: 100 }} sx={{ width: { sm: 150 } }} /><Button startIcon={<QrCode2Icon />} variant="contained" disabled={busy || count < 1 || count > 100} onClick={() => void generate()}>Gerar etiquetas</Button><Typography variant="body2" color="text.secondary">Até 100 por vez</Typography></Stack></Paper>
+    <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 4, mb: 2 }}>Disponíveis para vincular <Chip label={codes.length} size="small" sx={{ ml: 1 }} /></Typography>
+    {codes.length === 0 ? <EmptyState title="Nenhuma etiqueta disponível" description="Gere etiquetas para começar a vincular os objetos encontrados." /> : <div className="qr-grid">{codes.map(code => <Card key={code.id} className="qr-card"><CardContent><div className="qr-image"><QRCodeSVG value={`${window.location.origin}/qr/${code.guid}`} size={128} marginSize={1} /></div><Typography fontWeight={700} sx={{ mt: 1.5 }}>Etiqueta #{code.id}</Typography><Typography variant="caption" color="text.secondary" className="guid-text">{code.guid}</Typography><Button size="small" startIcon={<ContentCopyIcon />} onClick={() => void copy(code.guid)} sx={{ mt: 1 }}>Copiar link</Button></CardContent></Card>)}</div>}
+  </>
+}
+
+function UsersPanel() {
+  const api = useApi()
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [search, setSearch] = useState('')
+  const [query, setQuery] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState<number | null>(null)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => { let alive = true; api<AdminUser[]>(`/api/admin/users${query ? `?search=${encodeURIComponent(query)}` : ''}`, { protected: true }).then(data => { if (alive) { setUsers(data); setError(null) } }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar usuários.') }); return () => { alive = false } }, [api, query, revision])
+  async function toggle(user: AdminUser) {
+    const action = user.isAdmin ? 'remover o acesso administrativo de' : 'conceder acesso administrativo a'
+    if (!window.confirm(`Deseja ${action} ${user.name}?`)) return
+    setBusy(user.id); setError(null)
+    try { await api(`/api/admin/users/${user.id}/admin`, { protected: true, method: 'PATCH', body: { isAdmin: !user.isAdmin } }); setMessage('Permissão atualizada.'); setRevision(value => value + 1) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao alterar permissão.') }
+    finally { setBusy(null) }
+  }
+  return <><Typography variant="h5">Usuários</Typography><Typography color="text.secondary" sx={{ mb: 3 }}>Controle quem pode administrar o FindIt.</Typography>{message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}{error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <Box component="form" onSubmit={event => { event.preventDefault(); setQuery(search.trim()) }} sx={{ display: 'flex', gap: 1, mb: 3, maxWidth: 500 }}><TextField fullWidth label="Buscar por nome ou e-mail" value={search} onChange={event => setSearch(event.target.value)} /><Button type="submit" variant="contained">Buscar</Button></Box>
+    <Stack spacing={1.5}>{users.map(user => <Paper key={user.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{user.name} {user.isAdmin && <Chip label="Administrador" size="small" color="primary" sx={{ ml: 1 }} />}</Typography><Typography variant="body2" color="text.secondary">{user.email}</Typography></div><Button color={user.isAdmin ? 'error' : 'primary'} variant="outlined" disabled={busy === user.id} onClick={() => void toggle(user)}>{user.isAdmin ? 'Remover acesso' : 'Tornar admin'}</Button></Paper>)}</Stack>
+    {!error && users.length === 0 && <EmptyState title="Nenhum usuário encontrado" description="Tente outra busca ou peça para a pessoa entrar no FindIt antes de atribuir permissões." />}
+  </>
+}
