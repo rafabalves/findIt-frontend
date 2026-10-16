@@ -9,6 +9,10 @@ Primeira versão da interface do FindIt, feita com React, TypeScript, Vite, Mate
 - Minhas solicitações, com andamento e cancelamento de pedidos pendentes.
 - Painel administrativo para analisar solicitações, cadastrar e editar itens, gerenciar categorias, gerar etiquetas QR e atribuir administradores.
 
+Ao cadastrar um item, escolha uma etiqueta QR disponível ou escaneie com a câmera a etiqueta impressa. A etiqueta é obrigatória e deve estar livre. O leitor reconhece o link `/qr/{guid}` impresso e seleciona a etiqueta correspondente. A câmera exige permissão do navegador e HTTPS ou `localhost`.
+
+Na aba **Etiquetas QR**, use **Imprimir todas (PDF)** para baixar cartões A4 com todas as etiquetas disponíveis, ou **Imprimir** em um cartão para baixar apenas aquela etiqueta. Na página de detalhes de um item, administradores podem baixar novamente o PDF da etiqueta vinculada. Abra o PDF baixado para enviá-lo à impressora. Configure `VITE_PUBLIC_APP_URL` com o endereço definitivo do frontend antes de imprimir etiquetas para uso em outros dispositivos; sem essa variável, o QR usa a origem atual (por exemplo, `http://localhost:5173`).
+
 ## Executar localmente
 
 Requisitos: Node.js LTS com npm, MySQL e a API do FindIt. Inicie o backend no perfil **FindIt.Api (contas Microsoft - teste)**, na porta `https://localhost:64529`.

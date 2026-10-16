@@ -6,11 +6,16 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import QrCode2Icon from '@mui/icons-material/QrCode2'
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
 import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined'
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiUrl, publicApi, useApi } from '../api'
 import type { AdminRequest, AdminUser, Category, Item, Page, QRCode, RequestStatus } from '../types'
 import { EmptyState, ErrorState, formatDate, itemStatus, Loading, requestStatus } from '../ui'
+import QrScanner from '../QrScanner'
+import { labelGuidFromQr } from '../qr'
+import { downloadLabelsPdf, labelBaseUrl, labelUrl } from '../labels'
 
 type AdminTab = 'requests' | 'items' | 'categories' | 'qr' | 'users'
 const tabs: { value: AdminTab; label: string }[] = [
@@ -121,6 +126,7 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
   const [photoItemId, setPhotoItemId] = useState<number | null>(null)
   const [form, setForm] = useState<ItemForm>(emptyItemForm)
   const [formOpen, setFormOpen] = useState(false)
+  const [scanOpen, setScanOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -142,6 +148,7 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
     publicApi<Item>(`/api/items/${editId}`).then(item => {
       if (!alive) return
       setEditing(item)
+      setScanOpen(false)
       setForm({ categoryId: String(categories.find(category => category.name === item.category)?.id || ''), qrCodeGuid: '', name: item.name, description: item.description, location: item.location, foundOn: toLocalInput(item.foundOn) })
       setFormOpen(true)
     }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Item não encontrado.') })
@@ -149,20 +156,30 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
   }, [editId, categories])
 
   function update<K extends keyof ItemForm>(key: K, value: ItemForm[K]) { setForm(current => ({ ...current, [key]: value })) }
-  function openCreate() { setEditing(null); setForm({ ...emptyItemForm, foundOn: toLocalInput(new Date().toISOString()) }); setFormOpen(true) }
-  function closeForm() { setFormOpen(false); if (editId) onDone() }
+  function openCreate() { setEditing(null); setScanOpen(false); setForm({ ...emptyItemForm, foundOn: toLocalInput(new Date().toISOString()) }); setFormOpen(true) }
+  function closeForm() { setScanOpen(false); setFormOpen(false); if (editId) onDone() }
+  function selectScannedQr(content: string): string | null {
+    const guid = labelGuidFromQr(content)
+    if (!guid) return 'Este QR não é uma etiqueta válida do FindIt.'
+    const code = codes.find(entry => entry.guid.toLowerCase() === guid)
+    if (!code) return 'Esta etiqueta não está disponível. Ela pode já estar vinculada a outro item.'
+    update('qrCodeGuid', code.guid)
+    setScanOpen(false)
+    return null
+  }
   async function submit(event: FormEvent) {
     event.preventDefault()
     setBusy(true); setError(null)
     try {
       if (!form.categoryId || !form.foundOn) throw new Error('Informe categoria e data em que o item foi encontrado.')
+      if (!editing && !form.qrCodeGuid) throw new Error('Selecione ou escaneie uma etiqueta QR para cadastrar o item.')
       const body = { categoryId: Number(form.categoryId), name: form.name.trim(), description: form.description.trim(), location: form.location.trim(), foundOn: new Date(form.foundOn).toISOString() }
       if (editing) {
         await api(`/api/admin/items/${editing.id}`, { protected: true, method: 'PATCH', body })
         setMessage('Item atualizado.');
         setPhotoItemId(editing.id)
       } else {
-        const created = await api<{ id: number }>('/api/admin/items', { protected: true, method: 'POST', body: { ...body, qrCodeGuid: form.qrCodeGuid || null } })
+        const created = await api<{ id: number }>('/api/admin/items', { protected: true, method: 'POST', body: { ...body, qrCodeGuid: form.qrCodeGuid } })
         setMessage('Item cadastrado.');
         setPhotoItemId(created.id)
       }
@@ -188,7 +205,14 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
       <TextField label="Local encontrado" value={form.location} onChange={event => update('location', event.target.value)} inputProps={{ maxLength: 255 }} required fullWidth />
       <TextField select label="Categoria" value={form.categoryId} onChange={event => update('categoryId', event.target.value)} required fullWidth>{categories.map(category => <MenuItem key={category.id} value={String(category.id)}>{category.name}</MenuItem>)}</TextField>
       <TextField label="Data e hora em que foi encontrado" type="datetime-local" value={form.foundOn} onChange={event => update('foundOn', event.target.value)} InputLabelProps={{ shrink: true }} required fullWidth helperText="O horário local será convertido para UTC ao enviar à API." />
-      {!editing && <TextField select label="Etiqueta QR (opcional)" value={form.qrCodeGuid} onChange={event => update('qrCodeGuid', event.target.value)} fullWidth><MenuItem value="">Sem etiqueta</MenuItem>{codes.map(code => <MenuItem key={code.id} value={code.guid}>#{code.id} · {code.guid.slice(0, 8)}…</MenuItem>)}</TextField>}
+      {!editing && <>
+        <TextField select label="Etiqueta QR" value={form.qrCodeGuid} onChange={event => update('qrCodeGuid', event.target.value)} required fullWidth helperText={codes.length ? 'Selecione uma etiqueta livre ou escaneie a etiqueta impressa.' : 'Nenhuma etiqueta livre. Gere uma na aba Etiquetas QR.'}>
+          <MenuItem value="" disabled>Selecione uma etiqueta</MenuItem>
+          {codes.map(code => <MenuItem key={code.id} value={code.guid}>#{code.id} · {code.guid.slice(0, 8)}…</MenuItem>)}
+        </TextField>
+        <Button type="button" variant="outlined" startIcon={<QrCodeScannerIcon />} onClick={() => setScanOpen(true)} disabled={scanOpen || busy}>Escanear etiqueta com a câmera</Button>
+        {scanOpen && <QrScanner onDetected={selectScannedQr} onClose={() => setScanOpen(false)} />}
+      </>}
     </Stack></DialogContent><DialogActions><Button disabled={busy} onClick={closeForm}>Cancelar</Button><Button type="submit" variant="contained" disabled={busy}>Salvar item</Button></DialogActions></Box></Dialog>
   </>
 }
@@ -355,6 +379,7 @@ function QRPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [printing, setPrinting] = useState<number | 'all' | null>(null)
   const [revision, setRevision] = useState(0)
   useEffect(() => { let alive = true; api<QRCode[]>('/api/admin/qr-codes/available', { protected: true }).then(data => { if (alive) { setCodes(data); setError(null) } }).catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar etiquetas.') }); return () => { alive = false } }, [api, revision])
   async function generate() {
@@ -363,11 +388,21 @@ function QRPanel() {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao gerar etiquetas.') }
     finally { setBusy(false) }
   }
-  async function copy(guid: string) { try { await navigator.clipboard.writeText(`${window.location.origin}/qr/${guid}`); setMessage('Link da etiqueta copiado.') } catch { setError('Não foi possível copiar o link.') } }
+  async function copy(guid: string) { try { await navigator.clipboard.writeText(labelUrl(guid)); setMessage('Link da etiqueta copiado.') } catch { setError('Não foi possível copiar o link.') } }
+  async function print(selected: QRCode[], filename: string, key: number | 'all') {
+    setPrinting(key); setError(null)
+    try { await downloadLabelsPdf(selected, filename) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao gerar o PDF das etiquetas.') }
+    finally { setPrinting(null) }
+  }
   return <><Typography variant="h5">Etiquetas QR</Typography><Typography color="text.secondary" sx={{ mb: 3 }}>Crie etiquetas e vincule uma delas ao cadastrar um item.</Typography>{message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}{error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     <Paper variant="outlined" className="admin-form-card"><Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.5}><TextField label="Quantidade" type="number" value={count} onChange={event => setCount(Number(event.target.value))} inputProps={{ min: 1, max: 100 }} sx={{ width: { sm: 150 } }} /><Button startIcon={<QrCode2Icon />} variant="contained" disabled={busy || count < 1 || count > 100} onClick={() => void generate()}>Gerar etiquetas</Button><Typography variant="body2" color="text.secondary">Até 100 por vez</Typography></Stack></Paper>
-    <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 4, mb: 2 }}>Disponíveis para vincular <Chip label={codes.length} size="small" sx={{ ml: 1 }} /></Typography>
-    {codes.length === 0 ? <EmptyState title="Nenhuma etiqueta disponível" description="Gere etiquetas para começar a vincular os objetos encontrados." /> : <div className="qr-grid">{codes.map(code => <Card key={code.id} className="qr-card"><CardContent><div className="qr-image"><QRCodeSVG value={`${window.location.origin}/qr/${code.guid}`} size={128} marginSize={1} /></div><Typography fontWeight={700} sx={{ mt: 1.5 }}>Etiqueta #{code.id}</Typography><Typography variant="caption" color="text.secondary" className="guid-text">{code.guid}</Typography><Button size="small" startIcon={<ContentCopyIcon />} onClick={() => void copy(code.guid)} sx={{ mt: 1 }}>Copiar link</Button></CardContent></Card>)}</div>}
+    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'start', sm: 'center' }} justifyContent="space-between" spacing={1} sx={{ mt: 4, mb: 2 }}>
+      <Typography variant="subtitle1" fontWeight={700}>Disponíveis para vincular <Chip label={codes.length} size="small" sx={{ ml: 1 }} /></Typography>
+      <Button variant="outlined" startIcon={<PrintOutlinedIcon />} disabled={codes.length === 0 || printing !== null} onClick={() => void print(codes, 'findit-etiquetas-disponiveis.pdf', 'all')}>Imprimir todas (PDF)</Button>
+    </Stack>
+    {labelBaseUrl.includes('localhost') && <Alert severity="info" sx={{ mb: 2 }}>Os QR codes desta versão apontam para localhost. Para etiquetas usadas em outros dispositivos, configure VITE_PUBLIC_APP_URL com o endereço publicado antes de imprimir.</Alert>}
+    {codes.length === 0 ? <EmptyState title="Nenhuma etiqueta disponível" description="Gere etiquetas para começar a vincular os objetos encontrados." /> : <div className="qr-grid">{codes.map(code => <Card key={code.id} className="qr-card"><CardContent><div className="qr-image"><QRCodeSVG value={labelUrl(code.guid)} size={128} marginSize={1} /></div><Typography fontWeight={700} sx={{ mt: 1.5 }}>Etiqueta #{code.id}</Typography><Typography variant="caption" color="text.secondary" className="guid-text">{code.guid}</Typography><Stack direction="row" flexWrap="wrap" spacing={1} sx={{ mt: 1 }}><Button size="small" startIcon={<ContentCopyIcon />} onClick={() => void copy(code.guid)}>Copiar link</Button><Button size="small" startIcon={<PrintOutlinedIcon />} disabled={printing !== null} onClick={() => void print([code], `findit-etiqueta-${code.id}.pdf`, code.id)}>Imprimir</Button></Stack></CardContent></Card>)}</div>}
   </>
 }
 

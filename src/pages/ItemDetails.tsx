@@ -6,11 +6,13 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined'
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined'
 import { publicApi, useApi } from '../api'
 import { loginRequest } from '../auth'
 import { useProfile } from '../App'
-import type { Activity, Item, ItemStatus } from '../types'
+import type { Activity, Item, ItemStatus, QRCode } from '../types'
 import { ErrorState, formatDate, ItemVisual, itemStatus, Loading } from '../ui'
+import { downloadLabelsPdf, labelBaseUrl } from '../labels'
 
 export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   const { id, guid } = useParams()
@@ -21,6 +23,7 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   const [item, setItem] = useState<Item | null>(null)
   const [selectedPhoto, setSelectedPhoto] = useState<number | undefined>()
   const [activity, setActivity] = useState<Activity[]>([])
+  const [linkedQr, setLinkedQr] = useState<QRCode | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -46,10 +49,22 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   useEffect(() => {
     if (!item || !me?.isAdmin) return
     let alive = true
+    setLinkedQr(null)
     api<Activity[]>(`/api/admin/items/${item.id}/activity`, { protected: true })
       .then(data => { if (alive) setActivity(data) }).catch(() => {})
+    api<QRCode>(`/api/admin/items/${item.id}/qr-code`, { protected: true })
+      .then(data => { if (alive) setLinkedQr(data) })
+      .catch(() => { if (alive) setLinkedQr(null) })
     return () => { alive = false }
   }, [item?.id, me?.isAdmin, revision, api])
+
+  async function printLabel() {
+    if (!linkedQr) return
+    setBusy(true); setActionError(null)
+    try { await downloadLabelsPdf([linkedQr], `findit-etiqueta-${linkedQr.id}.pdf`) }
+    catch (failure) { setActionError(failure instanceof Error ? failure.message : 'Falha ao gerar o PDF da etiqueta.') }
+    finally { setBusy(false) }
+  }
 
   async function requestItem(event: FormEvent) {
     event.preventDefault()
@@ -118,9 +133,11 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
           <Typography variant="subtitle1" fontWeight={700}>Ações administrativas</Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.5 }}>
             <Button variant="outlined" component={RouterLink} to={`/admin?item=${item.id}`}>Editar dados</Button>
+            {linkedQr && <Button variant="outlined" startIcon={<PrintOutlinedIcon />} disabled={busy} onClick={() => void printLabel()}>Imprimir etiqueta</Button>}
             <Button variant="outlined" onClick={() => setStatusOpen(true)}>Alterar status</Button>
             {item.status === 'Active' && <Button variant="outlined" color="success" disabled={busy} onClick={returnItem}>Registrar devolução</Button>}
           </Stack>
+          {linkedQr && labelBaseUrl.includes('localhost') && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>Esta etiqueta aponta para localhost; configure VITE_PUBLIC_APP_URL antes de imprimir para uso em outros dispositivos.</Typography>}
           {activity.length > 0 && <Box sx={{ mt: 2 }}><Typography variant="body2" fontWeight={700}>Histórico recente</Typography>{activity.slice(0, 4).map(entry => <Typography key={entry.id} variant="body2" color="text.secondary" sx={{ mt: 0.6 }}>{formatDate(entry.createdAt)} · {entry.description}</Typography>)}</Box>}
         </Paper>}
       </div>
