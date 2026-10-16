@@ -10,7 +10,7 @@ import { publicApi, useApi } from '../api'
 import { loginRequest } from '../auth'
 import { useProfile } from '../App'
 import type { Activity, Item, ItemStatus } from '../types'
-import { ErrorState, formatDate, ItemIllustration, itemStatus, Loading } from '../ui'
+import { ErrorState, formatDate, ItemVisual, itemStatus, Loading } from '../ui'
 
 export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   const { id, guid } = useParams()
@@ -19,6 +19,7 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   const authenticated = useIsAuthenticated()
   const { me } = useProfile()
   const [item, setItem] = useState<Item | null>(null)
+  const [selectedPhoto, setSelectedPhoto] = useState<number | undefined>()
   const [activity, setActivity] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +37,7 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
     let alive = true
     setLoading(true)
     const path = byQr ? `/api/items/by-qr/${guid}` : `/api/items/${id}`
-    publicApi<Item>(path).then(data => { if (alive) { setItem(data); setError(null) } })
+    publicApi<Item>(path).then(data => { if (alive) { setItem(data); setSelectedPhoto(undefined); setError(null) } })
       .catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o item.') })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
@@ -89,7 +90,13 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
     <Breadcrumbs sx={{ mb: 3 }}><Link component={RouterLink} to="/" underline="hover" color="inherit">Itens encontrados</Link><Typography color="text.primary">{item.name}</Typography></Breadcrumbs>
     <Button component={RouterLink} to="/" startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>Voltar ao catálogo</Button>
     <div className="detail-grid">
-      <ItemIllustration category={item.category} large />
+      <div>
+        <ItemVisual item={item} large photoId={selectedPhoto} />
+        {(item.photos?.length ?? 0) > 1 && <div className="photo-thumbnails">{item.photos?.map((photo, index) =>
+          <button key={photo.id} type="button" className={selectedPhoto === photo.id || (!selectedPhoto && index === 0) ? 'selected' : ''} onClick={() => setSelectedPhoto(photo.id)} aria-label={`Ver foto ${index + 1}`}>
+            <ItemVisual item={item} photoId={photo.id} />
+          </button>)}</div>}
+      </div>
       <div className="detail-content">
         <Stack direction="row" spacing={1} alignItems="center">{itemStatus(item.status)}<Typography color="text.secondary" variant="body2">Item #{item.id}</Typography></Stack>
         <Typography component="h1" variant="h3" sx={{ mt: 2, mb: 1 }}>{item.name}</Typography>

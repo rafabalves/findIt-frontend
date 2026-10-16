@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { Alert, Box, Button, Card, CardContent, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -6,8 +6,9 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import QrCode2Icon from '@mui/icons-material/QrCode2'
+import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined'
 import { QRCodeSVG } from 'qrcode.react'
-import { publicApi, useApi } from '../api'
+import { apiUrl, publicApi, useApi } from '../api'
 import type { AdminRequest, AdminUser, Category, Item, Page, QRCode, RequestStatus } from '../types'
 import { EmptyState, ErrorState, formatDate, itemStatus, Loading, requestStatus } from '../ui'
 
@@ -117,6 +118,7 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
   const [categories, setCategories] = useState<Category[]>([])
   const [codes, setCodes] = useState<QRCode[]>([])
   const [editing, setEditing] = useState<Item | null>(null)
+  const [photoItemId, setPhotoItemId] = useState<number | null>(null)
   const [form, setForm] = useState<ItemForm>(emptyItemForm)
   const [formOpen, setFormOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -158,9 +160,11 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
       if (editing) {
         await api(`/api/admin/items/${editing.id}`, { protected: true, method: 'PATCH', body })
         setMessage('Item atualizado.');
+        setPhotoItemId(editing.id)
       } else {
-        await api('/api/admin/items', { protected: true, method: 'POST', body: { ...body, qrCodeGuid: form.qrCodeGuid || null } })
+        const created = await api<{ id: number }>('/api/admin/items', { protected: true, method: 'POST', body: { ...body, qrCodeGuid: form.qrCodeGuid || null } })
         setMessage('Item cadastrado.');
+        setPhotoItemId(created.id)
       }
       closeForm(); setRevision(value => value + 1)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao salvar item.') }
@@ -173,10 +177,11 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     {!active ? <Loading /> : <>
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>Disponíveis <Chip size="small" label={active.total} sx={{ ml: 1 }} /></Typography>
-      <div className="admin-item-grid">{active.items.map(item => <Paper key={item.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{item.name}</Typography><Typography variant="body2" color="text.secondary">{item.category} · {item.location}</Typography></div><Stack direction="row" alignItems="center" spacing={1}>{itemStatus(item.status)}<IconButton component={RouterLink} to={`/itens/${item.id}`} aria-label={`Abrir ${item.name}`}><ArrowForwardIcon /></IconButton><IconButton aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setForm({ categoryId: String(categories.find(category => category.name === item.category)?.id || ''), qrCodeGuid: '', name: item.name, description: item.description, location: item.location, foundOn: toLocalInput(item.foundOn) }); setFormOpen(true) }}><EditOutlinedIcon /></IconButton></Stack></Paper>)}</div>
+      <div className="admin-item-grid">{active.items.map(item => <Paper key={item.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{item.name}</Typography><Typography variant="body2" color="text.secondary">{item.category} · {item.location}</Typography></div><Stack direction="row" alignItems="center" spacing={1}>{itemStatus(item.status)}<IconButton component={RouterLink} to={`/itens/${item.id}`} aria-label={`Abrir ${item.name}`}><ArrowForwardIcon /></IconButton><IconButton aria-label={`Gerenciar fotos de ${item.name}`} onClick={() => setPhotoItemId(item.id)}><PhotoCameraOutlinedIcon /></IconButton><IconButton aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setForm({ categoryId: String(categories.find(category => category.name === item.category)?.id || ''), qrCodeGuid: '', name: item.name, description: item.description, location: item.location, foundOn: toLocalInput(item.foundOn) }); setFormOpen(true) }}><EditOutlinedIcon /></IconButton></Stack></Paper>)}</div>
       {active.total > active.items.length && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Exibindo os 100 itens ativos mais recentes.</Typography>}
-      {closed && closed.items.length > 0 && <><Typography variant="subtitle1" fontWeight={700} sx={{ mt: 4, mb: 1.5 }}>Encerrados recentemente</Typography><div className="admin-item-grid">{closed.items.map(item => <Paper key={item.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{item.name}</Typography><Typography variant="body2" color="text.secondary">{formatDate(item.statusChangedAt)}</Typography></div><Stack direction="row" alignItems="center" spacing={1}>{itemStatus(item.status)}<IconButton component={RouterLink} to={`/itens/${item.id}`} aria-label={`Abrir ${item.name}`}><ArrowForwardIcon /></IconButton></Stack></Paper>)}</div></>}
+      {closed && closed.items.length > 0 && <><Typography variant="subtitle1" fontWeight={700} sx={{ mt: 4, mb: 1.5 }}>Encerrados recentemente</Typography><div className="admin-item-grid">{closed.items.map(item => <Paper key={item.id} variant="outlined" className="admin-item-row"><div><Typography fontWeight={700}>{item.name}</Typography><Typography variant="body2" color="text.secondary">{formatDate(item.statusChangedAt)}</Typography></div><Stack direction="row" alignItems="center" spacing={1}>{itemStatus(item.status)}<IconButton component={RouterLink} to={`/itens/${item.id}`} aria-label={`Abrir ${item.name}`}><ArrowForwardIcon /></IconButton><IconButton aria-label={`Gerenciar fotos de ${item.name}`} onClick={() => setPhotoItemId(item.id)}><PhotoCameraOutlinedIcon /></IconButton></Stack></Paper>)}</div></>}
     </>}
+    <PhotoDialog itemId={photoItemId} onClose={() => setPhotoItemId(null)} onSaved={() => { setPhotoItemId(null); setRevision(value => value + 1); setMessage('Fotos atualizadas.') }} />
     <Dialog open={formOpen} onClose={() => !busy && closeForm()} fullWidth maxWidth="sm"><Box component="form" onSubmit={submit}><DialogTitle>{editing ? `Editar item #${editing.id}` : 'Cadastrar item'}</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
       <TextField label="Nome" value={form.name} onChange={event => update('name', event.target.value)} inputProps={{ maxLength: 255 }} required fullWidth />
       <TextField label="Descrição" value={form.description} onChange={event => update('description', event.target.value)} inputProps={{ maxLength: 2000 }} multiline minRows={3} required fullWidth />
@@ -188,6 +193,137 @@ function ItemsPanel({ editId, onDone }: { editId: string | null; onDone: () => v
   </>
 }
 
+function PhotoDialog({ itemId, onClose, onSaved }: { itemId: number | null; onClose: () => void; onSaved: () => void }) {
+  const api = useApi()
+  const [item, setItem] = useState<Item | null>(null)
+  const [files, setFiles] = useState<File[]>([])
+  const [previews, setPreviews] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  useEffect(() => {
+    setItem(null); setFiles([]); setError(null); setCameraOpen(false)
+    if (itemId === null) return
+    let alive = true
+    publicApi<Item>(`/api/items/${itemId}`)
+      .then(value => { if (alive) setItem(value) })
+      .catch(reason => { if (alive) setError(reason instanceof Error ? reason.message : 'Falha ao carregar fotos.') })
+    return () => { alive = false }
+  }, [itemId])
+
+  useEffect(() => {
+    const urls = files.map(file => URL.createObjectURL(file))
+    setPreviews(urls)
+    return () => urls.forEach(url => URL.revokeObjectURL(url))
+  }, [files])
+
+  useEffect(() => {
+    if (!cameraOpen) return
+    let active = true
+    let stream: MediaStream | null = null
+    setCameraReady(false)
+    async function startCamera() {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('A câmera exige HTTPS ou localhost e um navegador compatível.')
+        }
+        const opened = await navigator.mediaDevices.getUserMedia({
+          audio: false, video: { facingMode: { ideal: 'environment' } },
+        })
+        if (!active) { opened.getTracks().forEach(track => track.stop()); return }
+        stream = opened
+        if (videoRef.current) {
+          videoRef.current.srcObject = opened
+          await videoRef.current.play()
+          if (active) setCameraReady(true)
+        }
+      } catch (reason) {
+        if (!active) return
+        const name = reason instanceof DOMException ? reason.name : ''
+        setError(name === 'NotAllowedError'
+          ? 'Permita o acesso à câmera nas configurações do navegador.'
+          : name === 'NotFoundError'
+            ? 'Nenhuma câmera foi encontrada neste dispositivo.'
+            : reason instanceof Error ? reason.message : 'Não foi possível abrir a câmera.')
+        setCameraOpen(false)
+      }
+    }
+    void startCamera()
+    return () => {
+      active = false
+      stream?.getTracks().forEach(track => track.stop())
+      if (videoRef.current) videoRef.current.srcObject = null
+    }
+  }, [cameraOpen])
+
+  async function capturePhoto() {
+    const video = videoRef.current
+    if (!video?.videoWidth || !video.videoHeight) return
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0)
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+    if (!blob) { setError('Não foi possível capturar a foto.'); return }
+    const photo = new File([blob], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    if (files.length >= 3 || photo.size > 5_000_000) {
+      setError('Selecione até 3 fotos de no máximo 5 MB cada.'); return
+    }
+    setFiles(current => [...current, photo])
+    setError(null)
+    setCameraOpen(false)
+  }
+
+  function selectPhotos(selected: FileList | null, append = false) {
+    if (!selected?.length) return
+    const next = append ? [...files, ...Array.from(selected)] : Array.from(selected)
+    if (next.length > 3 || next.some(file => file.size > 5_000_000 || file.size === 0)) {
+      setError('Selecione até 3 fotos de no máximo 5 MB cada.'); return
+    }
+    setError(null); setFiles(next)
+  }
+
+  async function replacePhotos(replacements: File[]) {
+    if (itemId === null) return
+    setBusy(true); setError(null)
+    try {
+      const body = new FormData()
+      replacements.forEach(file => body.append('files', file))
+      await api(`/api/admin/items/${itemId}/photos`, { protected: true, method: 'PUT', body })
+      onSaved()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível salvar as fotos.') }
+    finally { setBusy(false) }
+  }
+
+  return <Dialog open={itemId !== null} onClose={() => !busy && onClose()} fullWidth maxWidth="sm">
+    <DialogTitle>Fotos do item {item ? `#${item.id} · ${item.name}` : `#${itemId}`}</DialogTitle>
+    <DialogContent>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>Fotos opcionais. Escolha até 3 imagens JPEG, PNG ou WebP, com no máximo 5 MB cada. O primeiro arquivo será a capa. Salvar novas fotos substitui todas as anteriores.</Typography>
+      {item?.photos?.length ? <><Typography fontWeight={700} variant="body2">Fotos atuais</Typography><div className="photo-upload-grid">{item.photos?.map(photo => <img key={photo.id} src={apiUrl(`/api/items/${item.id}/photos/${photo.id}`)} alt={`Foto atual de ${item.name}`} />)}</div></> : null}
+      {previews.length > 0 && <><Typography fontWeight={700} variant="body2" sx={{ mt: 2 }}>Novas fotos</Typography><div className="photo-upload-grid">{previews.map((url, index) => <img key={url} src={url} alt={`Nova foto ${index + 1}`} />)}</div></>}
+      {cameraOpen && <Box sx={{ mt: 2 }}>
+        <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 12, background: '#18222b' }} />
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button variant="contained" onClick={() => void capturePhoto()} disabled={!cameraReady}>Capturar foto</Button>
+          <Button onClick={() => setCameraOpen(false)}>Fechar câmera</Button>
+        </Stack>
+      </Box>}
+      <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+        <Button variant="outlined" startIcon={<PhotoCameraOutlinedIcon />} onClick={() => { setError(null); setCameraOpen(true) }} disabled={busy || cameraOpen || files.length >= 3}>Tirar foto</Button>
+        <Button variant="outlined" component="label" disabled={busy}>Escolher arquivos<input hidden type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={event => { selectPhotos(event.target.files); event.target.value = '' }} /></Button>
+      </Stack>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} disabled={busy}>{item?.photos?.length ? 'Cancelar' : 'Pular por enquanto'}</Button>
+      {item?.photos?.length ? <Button color="error" onClick={() => void replacePhotos([])} disabled={busy}>Remover todas</Button> : null}
+      <Button variant="contained" onClick={() => void replacePhotos(files)} disabled={busy || files.length === 0}>Salvar fotos</Button>
+    </DialogActions>
+  </Dialog>
+}
 function CategoriesPanel() {
   const api = useApi()
   const [categories, setCategories] = useState<Category[]>([])

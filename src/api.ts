@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { loginRequest } from './auth'
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+export const apiUrl = (path: string) => `${baseUrl}${path}`
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -23,7 +24,7 @@ export async function publicApi<T>(path: string, options: RequestOptions = {}): 
 async function send<T>(path: string, options: RequestOptions, token?: string): Promise<T> {
   const { body, protected: _requiresAuth, ...rest } = options
   const headers = new Headers(rest.headers)
-  if (body !== undefined) headers.set('Content-Type', 'application/json')
+  if (body !== undefined && !(body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   let response: Response
@@ -31,7 +32,7 @@ async function send<T>(path: string, options: RequestOptions, token?: string): P
     response = await fetch(`${baseUrl}${path}`, {
       ...rest,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError('Não foi possível conectar à API. Verifique se o backend está em execução.', 0)

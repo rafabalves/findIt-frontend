@@ -6,7 +6,8 @@ import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined'
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined'
 import BackpackOutlinedIcon from '@mui/icons-material/BackpackOutlined'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
-import type { ItemStatus, RequestStatus } from './types'
+import type { Item, ItemStatus, RequestStatus } from './types'
+import { apiUrl } from './api'
 
 export function formatDate(value: string | null | undefined) {
   if (!value) return '—'
@@ -41,6 +42,14 @@ export function ItemIllustration({ category, large = false }: { category: string
       <Icon className="illustration-icon" />
     </Box>
   )
+}
+
+export function ItemVisual({ item, large = false, photoId }: { item: Item; large?: boolean; photoId?: number }) {
+  const selected = photoId ?? item.photos?.[0]?.id
+  if (!selected) return <ItemIllustration category={item.category} large={large} />
+  return <Box className={`item-illustration item-photo${large ? ' item-illustration-large' : ''}`}>
+    <img src={apiUrl(`/api/items/${item.id}/photos/${selected}`)} alt={`Foto de ${item.name}`} loading={large ? 'eager' : 'lazy'} />
+  </Box>
 }
 
 export function Loading({ label = 'Carregando…' }: { label?: string }) {

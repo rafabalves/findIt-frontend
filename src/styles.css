@@ -81,7 +81,9 @@ a { color: inherit; }
 .card-bottom > div { max-width: calc(100% - 28px); }
 .recent-section { padding-top: 80px; }
 .recent-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.recent-item { background: #f0f3ed; border: 1px solid #e6ebe3; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; min-width: 0; }
+.recent-item { background: #f0f3ed; border: 1px solid #e6ebe3; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; min-width: 0; color: inherit; text-decoration: none; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+.recent-item:hover, .recent-item:focus-visible { border-color: #95b8a5; transform: translateY(-2px); box-shadow: 0 10px 24px rgba(14, 44, 48, .09); }
+.recent-arrow { margin-left: auto; color: #6e8386; flex: 0 0 auto; }
 .recent-item strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent-item > div { min-width: 0; }
 .recent-check { color: #fff; background: #5c9e79; border-radius: 50%; width: 27px; height: 27px; display: grid; place-items: center; flex: 0 0 auto; font-weight: 700; }
@@ -90,6 +92,13 @@ a { color: inherit; }
 
 .detail-grid { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); gap: clamp(36px, 6vw, 85px); align-items: start; }
 .item-illustration-large { height: 480px; border-radius: 20px; }
+.item-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumbnails { display: flex; gap: 10px; margin-top: 12px; }
+.photo-thumbnails button { width: 88px; height: 72px; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; cursor: pointer; background: transparent; }
+.photo-thumbnails button.selected, .photo-thumbnails button:focus-visible { border-color: #d4774c; }
+.photo-thumbnails .item-illustration { height: 100%; }
+.photo-upload-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.photo-upload-grid img { width: 100%; height: 115px; object-fit: cover; border-radius: 10px; border: 1px solid #e6ebe3; }
 .item-illustration-large .illustration-icon { font-size: 160px !important; }
 .item-illustration-large .illustration-orbit-one { width: 390px; height: 390px; }
 .item-illustration-large .illustration-orbit-two { width: 265px; height: 265px; }

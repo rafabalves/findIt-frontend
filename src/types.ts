@@ -16,6 +16,7 @@ export interface Item {
   foundOn: string
   createdAt: string
   statusChangedAt: string
+  photos: { id: number }[]
 }
 
 export interface Page<T> {

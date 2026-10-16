@@ -9,12 +9,12 @@ import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined'
 import { publicApi } from '../api'
 import type { Category, Item, Page } from '../types'
-import { EmptyState, ErrorState, formatDate, ItemIllustration, Loading } from '../ui'
+import { EmptyState, ErrorState, formatDate, ItemVisual, Loading } from '../ui'
 
 export function ItemCard({ item }: { item: Item }) {
   return <Card className="item-card">
     <CardActionArea component={RouterLink} to={`/itens/${item.id}`} sx={{ height: '100%' }}>
-      <ItemIllustration category={item.category} />
+      <ItemVisual item={item} />
       <CardContent sx={{ p: 2.5 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
           <Chip size="small" label={item.category} className="category-chip" />
@@ -137,7 +137,7 @@ export default function Catalog() {
 
       {recent && recent.items.length > 0 && <section className="recent-section">
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}><div><span className="eyebrow">BOAS NOTÍCIAS</span><Typography variant="h4" sx={{ mt: 0.5 }}>Reencontros recentes</Typography></div></Stack>
-        <div className="recent-grid">{recent.items.map(item => <Box key={item.id} className="recent-item"><span className="recent-check">✓</span><div><strong>{item.name}</strong><Typography variant="body2" color="text.secondary">{item.status === 'Returned' ? 'Devolvido' : 'Arquivado'} · {formatDate(item.statusChangedAt)}</Typography></div></Box>)}</div>
+        <div className="recent-grid">{recent.items.map(item => <RouterLink key={item.id} to={`/itens/${item.id}`} className="recent-item" aria-label={`Ver detalhes de ${item.name}`}><span className="recent-check">✓</span><div><strong>{item.name}</strong><Typography variant="body2" color="text.secondary">{item.status === 'Returned' ? 'Devolvido' : 'Arquivado'} · {formatDate(item.statusChangedAt)}</Typography></div><ArrowForwardIcon className="recent-arrow" fontSize="small" /></RouterLink>)}</div>
       </section>}
     </Container>
   </>

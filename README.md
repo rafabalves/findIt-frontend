@@ -29,8 +29,12 @@ As opções estão em `src/auth.ts` e podem ser substituídas pelas variáveis e
 
 O login com conta institucional da UEMG segue dependente do consentimento do administrador da universidade. Para os testes do TCC, use o perfil da API para contas Microsoft.
 
+## Fotos dos itens
+
+No painel administrativo, cadastre primeiro os dados do item e depois tire fotos ou escolha arquivos. As fotos são opcionais; até três arquivos JPEG, PNG ou WebP de no máximo 5 MB cada. A primeira foto aparece como capa no catálogo. Na gestão do item, o botão de câmera abre a mesma etapa para substituir todas as fotos ou removê-las. O frontend envia os arquivos por multipart/form-data para PUT /api/admin/items/{id}/photos; a API grava as fotos em disco e os metadados no MySQL. A migration AddItemPhotos precisa estar aplicada.
+
 ## Limites desta primeira versão
 
 - A API ainda não possui um endpoint administrativo para listar todos os itens. O painel mostra itens ativos e os encerrados nos últimos sete dias; detalhes de qualquer item conhecido continuam acessíveis por ID ou QR.
-- Não há imagens dos itens no backend. Os cartões exibem ilustrações por categoria.
+- Itens sem foto continuam usando ilustrações por categoria. O armazenamento de imagens em nuvem fica como melhoria futura.
 - As etiquetas QR exibem uma URL que aponta para `/qr/{guid}` neste frontend. Para etiquetas impressas, use a URL definitiva após a publicação.
