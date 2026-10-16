@@ -43,6 +43,7 @@ export interface RecoveryRequest {
   expiresAt: string | null
   createdAt: string
   updatedAt: string
+  pickupCodeAvailable: boolean
 }
 
 export interface AdminRequest extends RecoveryRequest {

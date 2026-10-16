@@ -31,6 +31,8 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   const [requestOpen, setRequestOpen] = useState(false)
   const [justification, setJustification] = useState('')
   const [statusOpen, setStatusOpen] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [pickupCode, setPickupCode] = useState('')
   const [newStatus, setNewStatus] = useState<ItemStatus>('Archived')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -88,11 +90,13 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
     finally { setBusy(false) }
   }
 
-  async function returnItem() {
-    if (!item || !window.confirm('Confirmar a entrega física deste item?')) return
+  async function returnItem(event: FormEvent) {
+    event.preventDefault()
+    if (!item || !pickupCode.trim()) return
     setBusy(true); setActionError(null)
     try {
-      await api(`/api/admin/items/${item.id}/return`, { protected: true, method: 'POST' })
+      await api(`/api/admin/items/${item.id}/return`, { protected: true, method: 'POST', body: { pickupCode: pickupCode.trim() } })
+      setReturnOpen(false); setPickupCode('')
       setSuccess('Devolução registrada.'); setRevision(value => value + 1)
     } catch (failure) { setActionError(failure instanceof Error ? failure.message : 'Falha ao registrar devolução.') }
     finally { setBusy(false) }
@@ -135,7 +139,7 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
             <Button variant="outlined" component={RouterLink} to={`/admin?item=${item.id}`}>Editar dados</Button>
             {linkedQr && <Button variant="outlined" startIcon={<PrintOutlinedIcon />} disabled={busy} onClick={() => void printLabel()}>Imprimir etiqueta</Button>}
             <Button variant="outlined" onClick={() => setStatusOpen(true)}>Alterar status</Button>
-            {item.status === 'Active' && <Button variant="outlined" color="success" disabled={busy} onClick={returnItem}>Registrar devolução</Button>}
+            {item.status === 'Active' && <Button variant="outlined" color="success" disabled={busy} onClick={() => setReturnOpen(true)}>Registrar devolução</Button>}
           </Stack>
           {activity.length > 0 && <Box sx={{ mt: 2 }}><Typography variant="body2" fontWeight={700}>Histórico recente</Typography>{activity.slice(0, 4).map(entry => <Typography key={entry.id} variant="body2" color="text.secondary" sx={{ mt: 0.6 }}>{formatDate(entry.createdAt)} · {entry.description}</Typography>)}</Box>}
         </Paper>}
@@ -147,6 +151,13 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
         <DialogTitle>Solicitar {item.name}</DialogTitle>
         <DialogContent><Typography color="text.secondary" sx={{ mb: 2 }}>Descreva características que ajudem a confirmar que o item pertence a você.</Typography>{actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}<TextField multiline minRows={4} fullWidth autoFocus label="Por que este item é seu?" value={justification} onChange={event => setJustification(event.target.value)} inputProps={{ maxLength: 2000 }} required /></DialogContent>
         <DialogActions><Button onClick={() => setRequestOpen(false)} disabled={busy}>Cancelar</Button><Button type="submit" variant="contained" disabled={busy || !justification.trim()}>Enviar solicitação</Button></DialogActions>
+      </Box>
+    </Dialog>
+    <Dialog open={returnOpen} onClose={() => !busy && setReturnOpen(false)} fullWidth maxWidth="sm">
+      <Box component="form" onSubmit={returnItem}>
+        <DialogTitle>Registrar devolução</DialogTitle>
+        <DialogContent><Typography color="text.secondary" sx={{ mb: 2 }}>Peça ao solicitante aprovado o código exibido em Minhas solicitações antes de entregar o item.</Typography>{actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}<TextField fullWidth autoFocus label="Código de retirada" value={pickupCode} onChange={event => setPickupCode(event.target.value.toUpperCase())} inputProps={{ maxLength: 10, autoComplete: 'off' }} required /></DialogContent>
+        <DialogActions><Button onClick={() => setReturnOpen(false)} disabled={busy}>Cancelar</Button><Button type="submit" variant="contained" color="success" disabled={busy || !pickupCode.trim()}>Confirmar entrega</Button></DialogActions>
       </Box>
     </Dialog>
     <Dialog open={statusOpen} onClose={() => !busy && setStatusOpen(false)} fullWidth maxWidth="sm">
