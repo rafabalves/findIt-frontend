@@ -12,7 +12,7 @@ import { loginRequest } from '../auth'
 import { useProfile } from '../App'
 import type { Activity, Item, ItemStatus, QRCode } from '../types'
 import { ErrorState, formatDate, ItemVisual, itemStatus, Loading } from '../ui'
-import { downloadLabelsPdf, labelBaseUrl } from '../labels'
+import { downloadLabelsPdf } from '../labels'
 
 export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
   const { id, guid } = useParams()
@@ -137,7 +137,6 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
             <Button variant="outlined" onClick={() => setStatusOpen(true)}>Alterar status</Button>
             {item.status === 'Active' && <Button variant="outlined" color="success" disabled={busy} onClick={returnItem}>Registrar devolução</Button>}
           </Stack>
-          {linkedQr && labelBaseUrl.includes('localhost') && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>Esta etiqueta aponta para localhost; configure VITE_PUBLIC_APP_URL antes de imprimir para uso em outros dispositivos.</Typography>}
           {activity.length > 0 && <Box sx={{ mt: 2 }}><Typography variant="body2" fontWeight={700}>Histórico recente</Typography>{activity.slice(0, 4).map(entry => <Typography key={entry.id} variant="body2" color="text.secondary" sx={{ mt: 0.6 }}>{formatDate(entry.createdAt)} · {entry.description}</Typography>)}</Box>}
         </Paper>}
       </div>

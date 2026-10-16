@@ -80,13 +80,6 @@ a { color: inherit; }
 .card-bottom { color: #6e8386; margin-top: auto; padding-top: 19px; }
 .card-bottom > div { max-width: calc(100% - 28px); }
 .recent-section { padding-top: 80px; }
-.recent-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.recent-item { background: #f0f3ed; border: 1px solid #e6ebe3; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; min-width: 0; color: inherit; text-decoration: none; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
-.recent-item:hover, .recent-item:focus-visible { border-color: #95b8a5; transform: translateY(-2px); box-shadow: 0 10px 24px rgba(14, 44, 48, .09); }
-.recent-arrow { margin-left: auto; color: #6e8386; flex: 0 0 auto; }
-.recent-item strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recent-item > div { min-width: 0; }
-.recent-check { color: #fff; background: #5c9e79; border-radius: 50%; width: 27px; height: 27px; display: grid; place-items: center; flex: 0 0 auto; font-weight: 700; }
 .empty-state { background: #fff; border: 1px dashed #c9d9d2; border-radius: 18px; padding: 58px 25px; text-align: center; }
 .access-card { text-align: center; background: white; border: 1px solid #e4ebe7; border-radius: 22px; padding: 60px 30px; }
 
@@ -145,7 +138,6 @@ a { color: inherit; }
   .steps-section { grid-template-columns: 1fr; gap: 23px; }
   .catalog-section { padding-top: 54px; }
   .items-grid { grid-template-columns: 1fr; gap: 15px; }
-  .recent-grid { grid-template-columns: 1fr; }
   .recent-section { padding-top: 55px; }
   .detail-grid { grid-template-columns: 1fr; gap: 23px; }
   .item-illustration-large { height: 260px; }

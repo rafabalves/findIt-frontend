@@ -15,7 +15,7 @@ import type { AdminRequest, AdminUser, Category, Item, Page, QRCode, RequestStat
 import { EmptyState, ErrorState, formatDate, itemStatus, Loading, requestStatus } from '../ui'
 import QrScanner from '../QrScanner'
 import { labelGuidFromQr } from '../qr'
-import { downloadLabelsPdf, labelBaseUrl, labelUrl } from '../labels'
+import { downloadLabelsPdf, labelUrl } from '../labels'
 
 type AdminTab = 'requests' | 'items' | 'categories' | 'qr' | 'users'
 const tabs: { value: AdminTab; label: string }[] = [
@@ -401,7 +401,6 @@ function QRPanel() {
       <Typography variant="subtitle1" fontWeight={700}>Disponíveis para vincular <Chip label={codes.length} size="small" sx={{ ml: 1 }} /></Typography>
       <Button variant="outlined" startIcon={<PrintOutlinedIcon />} disabled={codes.length === 0 || printing !== null} onClick={() => void print(codes, 'findit-etiquetas-disponiveis.pdf', 'all')}>Imprimir todas (PDF)</Button>
     </Stack>
-    {labelBaseUrl.includes('localhost') && <Alert severity="info" sx={{ mb: 2 }}>Os QR codes desta versão apontam para localhost. Para etiquetas usadas em outros dispositivos, configure VITE_PUBLIC_APP_URL com o endereço publicado antes de imprimir.</Alert>}
     {codes.length === 0 ? <EmptyState title="Nenhuma etiqueta disponível" description="Gere etiquetas para começar a vincular os objetos encontrados." /> : <div className="qr-grid">{codes.map(code => <Card key={code.id} className="qr-card"><CardContent><div className="qr-image"><QRCodeSVG value={labelUrl(code.guid)} size={128} marginSize={1} /></div><Typography fontWeight={700} sx={{ mt: 1.5 }}>Etiqueta #{code.id}</Typography><Typography variant="caption" color="text.secondary" className="guid-text">{code.guid}</Typography><Stack direction="row" flexWrap="wrap" spacing={1} sx={{ mt: 1 }}><Button size="small" startIcon={<ContentCopyIcon />} onClick={() => void copy(code.guid)}>Copiar link</Button><Button size="small" startIcon={<PrintOutlinedIcon />} disabled={printing !== null} onClick={() => void print([code], `findit-etiqueta-${code.id}.pdf`, code.id)}>Imprimir</Button></Stack></CardContent></Card>)}</div>}
   </>
 }
