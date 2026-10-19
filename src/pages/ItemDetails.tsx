@@ -156,8 +156,8 @@ export default function ItemDetails({ byQr = false }: { byQr?: boolean }) {
     <Dialog open={returnOpen} onClose={() => !busy && setReturnOpen(false)} fullWidth maxWidth="sm">
       <Box component="form" onSubmit={returnItem}>
         <DialogTitle>Registrar devolução</DialogTitle>
-        <DialogContent><Typography color="text.secondary" sx={{ mb: 2 }}>Peça ao solicitante aprovado o código exibido em Minhas solicitações antes de entregar o item.</Typography>{actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}<TextField fullWidth autoFocus label="Código de retirada" value={pickupCode} onChange={event => setPickupCode(event.target.value.toUpperCase())} inputProps={{ maxLength: 10, autoComplete: 'off' }} required /></DialogContent>
-        <DialogActions><Button onClick={() => setReturnOpen(false)} disabled={busy}>Cancelar</Button><Button type="submit" variant="contained" color="success" disabled={busy || !pickupCode.trim()}>Confirmar entrega</Button></DialogActions>
+        <DialogContent><Typography color="text.secondary" sx={{ mb: 2 }}>Peça ao solicitante aprovado o código exibido em Minhas solicitações antes de entregar o item.</Typography>{actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}<TextField fullWidth autoFocus label="Código de retirada" value={pickupCode} onChange={event => setPickupCode(event.target.value.toUpperCase())} inputProps={{ maxLength: 4, autoComplete: 'off' }} required /></DialogContent>
+        <DialogActions><Button onClick={() => setReturnOpen(false)} disabled={busy}>Cancelar</Button><Button type="submit" variant="contained" color="success" disabled={busy || pickupCode.trim().length !== 4}>Confirmar entrega</Button></DialogActions>
       </Box>
     </Dialog>
     <Dialog open={statusOpen} onClose={() => !busy && setStatusOpen(false)} fullWidth maxWidth="sm">

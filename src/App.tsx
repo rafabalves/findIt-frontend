@@ -59,14 +59,14 @@ function Header() {
     <Container maxWidth="lg" className="header-inner">
       <RouterLink to="/" className="brand" aria-label="FindIt, ir para a página inicial">
         <span className="brand-mark"><SearchIcon fontSize="small" /></span>
-        <span>find<span className="brand-accent">it</span><span className="brand-dot">.</span></span>
+        <span>find<span className="brand-accent">it</span></span>
       </RouterLink>
       <nav className="desktop-nav" aria-label="Navegação principal">
         {nav.map(item => <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>{item.label}</NavLink>)}
       </nav>
       <Stack direction="row" alignItems="center" spacing={1}>
         {authenticated ? <>
-          <Button className="profile-button" onClick={event => setMenuAnchor(event.currentTarget)} startIcon={<Avatar sx={{ width: 27, height: 27, bgcolor: '#d8e8e4', color: '#17424a', fontSize: 13 }}>{(me?.name || 'U')[0]}</Avatar>}>
+          <Button className="profile-button" onClick={event => setMenuAnchor(event.currentTarget)} startIcon={<Avatar sx={{ width: 27, height: 27, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 13 }}>{(me?.name || 'U')[0]}</Avatar>}>
             {me?.name?.split(' ')[0] || 'Minha conta'}
           </Button>
           <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
@@ -86,7 +86,7 @@ function Header() {
 function Footer() {
   return <footer className="site-footer">
     <Container maxWidth="lg" className="footer-inner">
-      <Typography className="footer-brand">find<span>it</span>.</Typography>
+      <Typography className="footer-brand">find<span>it</span></Typography>
       <Typography variant="body2" color="text.secondary">Achados e perdidos · UEMG Divinópolis</Typography>
       <Typography variant="body2" color="text.secondary">Projeto de TCC</Typography>
     </Container>

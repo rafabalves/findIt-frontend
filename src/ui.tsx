@@ -69,7 +69,7 @@ export function EmptyState({ title, description, action, href }: {
   title: string; description: string; action?: string; href?: string
 }) {
   return <Box className="empty-state">
-    <CheckCircleOutlineIcon sx={{ fontSize: 44, color: '#7aa59d' }} />
+    <CheckCircleOutlineIcon sx={{ fontSize: 44, color: 'primary.main' }} />
     <Typography variant="h6" sx={{ mt: 1 }}>{title}</Typography>
     <Typography color="text.secondary" sx={{ maxWidth: 400, mx: 'auto', mt: 0.5 }}>{description}</Typography>
     {action && href && <Button component={RouterLink} to={href} variant="contained" sx={{ mt: 2 }}>{action}</Button>}

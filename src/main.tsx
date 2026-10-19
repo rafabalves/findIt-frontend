@@ -10,10 +10,10 @@ import './styles.css'
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#17424a', dark: '#103139', light: '#e1edeb' },
-    secondary: { main: '#d4774c' },
-    background: { default: '#faf9f5', paper: '#ffffff' },
-    text: { primary: '#17353c', secondary: '#627178' },
+    primary: { main: '#305b7d', dark: '#002b5c', light: '#e8f0f6' },
+    secondary: { main: '#e31837', dark: '#b5122b', light: '#fff0f2' },
+    background: { default: '#f7f9fb', paper: '#ffffff' },
+    text: { primary: '#20374a', secondary: '#617487' },
   },
   typography: {
     fontFamily: '"Aptos", "Segoe UI", sans-serif',
@@ -27,7 +27,7 @@ const theme = createTheme({
   shape: { borderRadius: 14 },
   components: {
     MuiButton: { styleOverrides: { root: { borderRadius: 12, boxShadow: 'none', paddingInline: 18 } } },
-    MuiCard: { styleOverrides: { root: { border: '1px solid #e8ece8', boxShadow: '0 12px 32px rgba(14, 44, 48, .045)' } } },
+    MuiCard: { styleOverrides: { root: { border: '1px solid #e2e9ef', boxShadow: '0 12px 32px rgba(0, 43, 92, .045)' } } },
     MuiTextField: { defaultProps: { size: 'small' } },
   },
 })

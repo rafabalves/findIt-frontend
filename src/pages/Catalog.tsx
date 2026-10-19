@@ -81,7 +81,7 @@ export default function Catalog() {
           <Typography component="h1" variant="h1" className="hero-title">Um reencontro<br />começa <em>aqui.</em></Typography>
           <Typography className="hero-subtitle">Encontre objetos perdidos no campus e acompanhe sua solicitação em um só lugar.</Typography>
           <Box component="form" onSubmit={submit} className="hero-search">
-            <SearchIcon sx={{ color: '#729096' }} />
+            <SearchIcon sx={{ color: 'primary.main' }} />
             <input aria-label="Buscar item" placeholder="O que você está procurando?" value={draft} onChange={event => setDraft(event.target.value)} />
             <Button type="submit" variant="contained">Buscar item</Button>
           </Box>
@@ -101,12 +101,6 @@ export default function Catalog() {
     </section>
 
     <Container maxWidth="lg" sx={{ pb: 9 }}>
-      <section className="steps-section">
-        <div><span className="step-number">01</span><strong>Explore os itens</strong><span>Pesquise por nome ou filtre por categoria.</span></div>
-        <div><span className="step-number">02</span><strong>Conte sua história</strong><span>Faça uma solicitação informando por que o item é seu.</span></div>
-        <div><span className="step-number">03</span><strong>Acompanhe tudo</strong><span>Veja o andamento e receba as instruções de retirada.</span></div>
-      </section>
-
       <section id="catalogo" className="catalog-section">
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'end' }} spacing={2} sx={{ mb: 3 }}>
           <div><span className="eyebrow">EXPLORE O CATÁLOGO</span><Typography variant="h3" sx={{ mt: 0.6 }}>Itens encontrados</Typography><Typography color="text.secondary" sx={{ mt: 0.8 }}>Veja o que está aguardando seu dono.</Typography></div>
@@ -136,7 +130,7 @@ export default function Catalog() {
       </section>
 
       {recent && recent.items.length > 0 && <section className="recent-section">
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}><div><span className="eyebrow">BOAS NOTÍCIAS</span><Typography variant="h4" sx={{ mt: 0.5 }}>Devolvidos recentemente</Typography></div></Stack>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}><div><span className="eyebrow">REENCONTROS NO CAMPUS</span><Typography variant="h4" sx={{ mt: 0.5 }}>Devolvidos recentemente</Typography></div></Stack>
         <div className="items-grid">{recent.items.map(item => <ItemCard key={item.id} item={item} />)}</div>
       </section>}
     </Container>
