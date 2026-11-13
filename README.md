@@ -1,44 +1,51 @@
 # FindIt Frontend
 
-Primeira versão da interface do FindIt, feita com React, TypeScript, Vite, Material UI e MSAL React. Ela usa a API em `FindIt-backend`.
+Interface web progressiva do protótipo FindIt, feita com React, TypeScript, Vite e Material UI. A [API](https://github.com/rafabalves/findIt-backend) está em outro repositório.
 
-## Telas
+## Funcionalidades
 
-- Catálogo público com busca, filtro por categoria, paginação e itens encerrados recentemente.
-- Detalhe do item, inclusive acesso por `/qr/{guid}` e envio de solicitação autenticada.
-- Minhas solicitações, com andamento e cancelamento de pedidos pendentes.
-- Painel administrativo para analisar solicitações, cadastrar e editar itens, gerenciar categorias, gerar etiquetas QR e atribuir administradores.
-
-Ao cadastrar um item, escolha uma etiqueta QR disponível ou escaneie com a câmera a etiqueta impressa. A etiqueta é obrigatória e deve estar livre. O leitor reconhece o link `/qr/{guid}` impresso e seleciona a etiqueta correspondente. A câmera exige permissão do navegador e HTTPS ou `localhost`.
-
-Na aba **Etiquetas QR**, use **Imprimir todas (PDF)** para baixar cartões A4 com todas as etiquetas disponíveis, ou **Imprimir** em um cartão para baixar apenas aquela etiqueta. Na página de detalhes de um item, administradores podem baixar novamente o PDF da etiqueta vinculada. Abra o PDF baixado para enviá-lo à impressora. Configure `VITE_PUBLIC_APP_URL` com o endereço definitivo do frontend antes de imprimir etiquetas para uso em outros dispositivos; sem essa variável, o QR usa a origem atual (por exemplo, `http://localhost:5173`).
+- Catálogo público, busca e detalhes dos itens.
+- Login com conta Microsoft e acompanhamento das solicitações de recuperação.
+- Painel administrativo para itens, categorias, etiquetas QR, solicitações e administradores.
+- Captura ou envio de fotografias, leitura de etiquetas pela câmera e geração de PDFs para impressão.
 
 ## Executar localmente
 
-Requisitos: Node.js LTS com npm, MySQL e a API do FindIt. Inicie o backend no perfil **FindIt.Api (contas Microsoft - teste)**, na porta `https://localhost:64529`.
+Requisitos: Node.js LTS com npm e a API FindIt em execução. No backend, use o perfil `FindIt.Api (contas Microsoft - teste)`.
 
 ```powershell
-cd C:\Users\Rafae\Desktop\FindIt-frontend
 npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`. O Vite encaminha chamadas `/api` para o backend local, evitando configurar CORS durante o desenvolvimento. O certificado HTTPS local do .NET deve estar confiável no Windows (`dotnet dev-certs https --trust` se necessário).
+Abra `http://localhost:5173`. Em desenvolvimento, o Vite encaminha `/api` para `https://localhost:64529`. Se o certificado local da API não estiver confiável, execute `dotnet dev-certs https --trust` no computador de desenvolvimento.
 
-## Login Microsoft
+No registro **FindIt Web** do Microsoft Entra ID, cadastre `http://localhost:5173` como URI de redirecionamento do tipo SPA. O login usa o fluxo de código de autorização com PKCE e solicita um token de acesso para a FindIt API. O fluxo institucional da UEMG não foi validado porque depende de consentimento administrativo; os testes do protótipo usam contas Microsoft pessoais.
 
-Em **FindIt Web → Autenticação → Aplicativo de página única (SPA)**, cadastre exatamente `http://localhost:5173` como URI de redirecionamento. Mantenha também a URI do Swagger. O frontend usa o ID do FindIt Web, a autoridade `/common` e o escopo delegado `api://a66cb6cf-367c-4568-b267-8e9f475a99bb/access_as_user`. IDs públicos podem ficar no código; não crie segredo de cliente no navegador.
+## Configuração
 
-As opções estão em `src/auth.ts` e podem ser substituídas pelas variáveis em `.env.example`. Se publicar a interface em outra origem, configure `VITE_API_BASE_URL`, cadastre a URI de redirecionamento correspondente no Entra e adicione a origem em `Cors:AllowedOrigins` da API.
+As variáveis disponíveis estão em `.env.example`. Para personalizar a execução local, copie o arquivo para `.env.local` e ajuste os valores necessários:
 
-O login com conta institucional da UEMG segue dependente do consentimento do administrador da universidade. Para os testes do TCC, use o perfil da API para contas Microsoft.
+| Variável | Finalidade |
+| --- | --- |
+| `VITE_API_BASE_URL` | URL pública da API; deixe vazia no desenvolvimento para usar o proxy do Vite. |
+| `VITE_PUBLIC_APP_URL` | Origem pública codificada nas etiquetas QR e nos PDFs. |
+| `VITE_AZURE_CLIENT_ID` | ID público do aplicativo FindIt Web. |
+| `VITE_AZURE_AUTHORITY` | Autoridade Microsoft usada no login. |
+| `VITE_API_SCOPE` | Escopo delegado da FindIt API. |
 
-## Fotos dos itens
+Cadastre a origem publicada como URI SPA no Entra ID e como origem permitida em `Cors:AllowedOrigins` na API. Configure `VITE_PUBLIC_APP_URL` antes de imprimir etiquetas que serão lidas em outros dispositivos.
 
-No painel administrativo, cadastre primeiro os dados do item e depois tire fotos ou escolha arquivos. As fotos são opcionais; até três arquivos JPEG, PNG ou WebP de no máximo 5 MB cada. A primeira foto aparece como capa no catálogo. Na gestão do item, o botão de câmera abre a mesma etapa para substituir todas as fotos ou removê-las. O frontend envia os arquivos por multipart/form-data para PUT /api/admin/items/{id}/photos; a API grava as fotos em disco e os metadados no MySQL. A migration AddItemPhotos precisa estar aplicada.
+## Criar a versão de distribuição
 
-## Limites desta primeira versão
+```powershell
+npm run build
+```
 
-- A API ainda não possui um endpoint administrativo para listar todos os itens. O painel mostra itens ativos e os encerrados nos últimos sete dias; detalhes de qualquer item conhecido continuam acessíveis por ID ou QR.
-- Itens sem foto continuam usando ilustrações por categoria. O armazenamento de imagens em nuvem fica como melhoria futura.
-- As etiquetas QR exibem uma URL que aponta para `/qr/{guid}` neste frontend. Para etiquetas impressas, use a URL definitiva após a publicação.
+Os arquivos gerados ficam em `dist`. No Cloudflare Pages, use `npm run build` como comando de build e `dist` como diretório de saída. As variáveis `VITE_*` devem estar configuradas no ambiente de build.
+
+A interface pode ser instalada como atalho em navegadores compatíveis, mas não oferece funcionamento offline. Na demonstração temporária, a API, o MySQL e as fotografias permanecem no computador do desenvolvedor; portanto, o site publicado depende de a API e o túnel HTTPS estarem ativos.
+
+## Fotografias e etiquetas
+
+O cadastro de item exige uma etiqueta QR livre. É possível selecioná-la na lista ou escanear a etiqueta impressa com a câmera. As fotografias são enviadas depois dos dados do item: até três arquivos JPEG, PNG ou WebP de até 5 MB cada. O administrador pode substituí-las ou removê-las na edição. A câmera depende de permissão do navegador e de HTTPS ou `localhost`.
